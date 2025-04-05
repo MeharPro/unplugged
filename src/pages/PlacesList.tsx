@@ -15,14 +15,14 @@ const PlacesList = () => {
   const [searchParams] = useSearchParams();
   const selectedType = searchParams.get('type') || "all";
   const currentWeather = searchParams.get('weather') || "sunny";
-  
+
   const [searchQuery, setSearchQuery] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [placeTypes, setPlaceTypes] = useState<string[]>(["park", "trail", "cafe"]);
   const [selectedPlaceType, setSelectedPlaceType] = useState<string>(selectedType);
   const [places, setPlaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   useEffect(() => {
     // Simulated data loading
     setLoading(true);
@@ -32,12 +32,12 @@ const PlacesList = () => {
       setPlaces(placesData);
       setLoading(false);
     }, 1000);
-  }, [selectedPlaceType]);
-  
+  }, [selectedPlaceType, userLocation]);
+
   const handleBack = () => {
     navigate("/dashboard");
   };
-  
+
   const generatePlacesData = () => {
     const allPlaces = [
       {
@@ -95,27 +95,27 @@ const PlacesList = () => {
         activities: ["Coffee", "Relaxation", "Nature viewing"]
       },
     ];
-    
+
     let filteredPlaces = allPlaces;
-    
+
     // Filter by type if not "all"
     if (selectedPlaceType !== "all") {
       filteredPlaces = allPlaces.filter(place => place.type === selectedPlaceType);
     }
-    
+
     // Filter by search if present
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filteredPlaces = filteredPlaces.filter(place => 
+      filteredPlaces = filteredPlaces.filter(place =>
         place.name.toLowerCase().includes(query) ||
         place.description.toLowerCase().includes(query) ||
         place.activities.some((act: string) => act.toLowerCase().includes(query))
       );
     }
-    
+
     return filteredPlaces;
   };
-  
+
   const getPlaceIcon = (type: string) => {
     switch (type) {
       case "park":
@@ -128,7 +128,7 @@ const PlacesList = () => {
         return <MapPin className="h-4 w-4" />;
     }
   };
-  
+
   const getPlaceColor = (type: string) => {
     switch (type) {
       case "park":
@@ -141,11 +141,11 @@ const PlacesList = () => {
         return "bg-blue-100 text-blue-600";
     }
   };
-  
+
   const handlePlaceClick = (place: any) => {
     navigate(`/place-map-view?name=${encodeURIComponent(place.name)}&type=${encodeURIComponent(place.type)}`);
   };
-  
+
   const filterByType = (type: string) => {
     setSelectedPlaceType(type);
   };
@@ -160,7 +160,7 @@ const PlacesList = () => {
       }
     }
   };
-  
+
   const item = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0 }
@@ -171,8 +171,8 @@ const PlacesList = () => {
       <div className="container mx-auto px-4 pb-24">
         {/* Header */}
         <div className="py-6 flex items-center">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             className="mr-3"
             onClick={handleBack}
@@ -184,7 +184,7 @@ const PlacesList = () => {
             <p className="text-sm text-gray-600">Find your next nature connection spot</p>
           </div>
         </div>
-        
+
         {/* Search and filter bar */}
         <div className="mb-6 space-y-4">
           <div className="relative">
@@ -195,8 +195,8 @@ const PlacesList = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="icon"
               className="absolute right-1 top-1/2 transform -translate-y-1/2"
               onClick={() => setFilterOpen(!filterOpen)}
@@ -204,16 +204,16 @@ const PlacesList = () => {
               <Filter className="h-4 w-4" />
             </Button>
           </div>
-          
+
           {filterOpen && (
-            <motion.div 
+            <motion.div
               className="bg-white rounded-lg p-4 shadow-md"
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
             >
               <h3 className="font-medium mb-2">Filter by type</h3>
               <div className="flex flex-wrap gap-2">
-                <Badge 
+                <Badge
                   variant={selectedPlaceType === "all" ? "default" : "outline"}
                   className="cursor-pointer"
                   onClick={() => filterByType("all")}
@@ -234,17 +234,17 @@ const PlacesList = () => {
             </motion.div>
           )}
         </div>
-        
+
         {/* Activity suggestions based on weather */}
         <div className="mb-6">
           <OutdoorActivitySuggestions weather={currentWeather as "sunny" | "cloudy" | "rainy" | "windy"} />
         </div>
-        
+
         {/* Local green spaces map */}
         <div className="mb-6">
           <LocalGreenSpacesMap weather={currentWeather} />
         </div>
-        
+
         {/* Places list */}
         <div className="mb-6">
           <div className="flex justify-between items-center mb-4">
@@ -256,8 +256,8 @@ const PlacesList = () => {
               {places.length} {selectedPlaceType === "all" ? "places" : selectedPlaceType + "s"} found
             </Badge>
           </div>
-          
-          {loading ? (
+
+          {loading || locationLoading ? (
             <div className="space-y-4">
               {Array.from({ length: 3 }).map((_, index) => (
                 <div key={index} className="rounded-lg bg-white p-4 animate-pulse">
@@ -281,8 +281,8 @@ const PlacesList = () => {
               <MapPin className="h-12 w-12 mx-auto text-gray-300 mb-2" />
               <h3 className="text-lg font-medium text-gray-700">No places found</h3>
               <p className="text-gray-500">Try adjusting your search or filters</p>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="mt-4"
                 onClick={() => {
                   setSearchQuery("");
@@ -293,18 +293,18 @@ const PlacesList = () => {
               </Button>
             </div>
           ) : (
-            <motion.div 
+            <motion.div
               className="space-y-3"
               initial="hidden"
               animate="visible"
               variants={container}
             >
               {places.map((place) => (
-                <motion.div 
+                <motion.div
                   key={place.id}
                   variants={item}
                 >
-                  <Card 
+                  <Card
                     className="border border-gray-100 hover:border-blue-200 hover:shadow-md transition-all duration-300 cursor-pointer"
                     onClick={() => handlePlaceClick(place)}
                   >
@@ -313,7 +313,7 @@ const PlacesList = () => {
                         <div className={`p-2 rounded-full mr-3 ${getPlaceColor(place.type)}`}>
                           {getPlaceIcon(place.type)}
                         </div>
-                        
+
                         <div className="flex-1">
                           <h3 className="font-medium">{place.name}</h3>
                           <div className="flex items-center text-gray-500 text-sm mt-0.5">
@@ -328,9 +328,9 @@ const PlacesList = () => {
                               {place.sunExposure} sun
                             </span>
                           </div>
-                          
+
                           <p className="text-gray-600 text-sm mt-2">{place.description}</p>
-                          
+
                           <div className="flex flex-wrap gap-1.5 mt-2">
                             {place.activities.map((activity: string, i: number) => (
                               <Badge key={i} variant="outline" className="bg-gray-50 text-xs">

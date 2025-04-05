@@ -8,6 +8,7 @@ import { MapPin, TreePine, Mountain, UtensilsCrossed, ArrowRight, Compass, Route
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchPlaces, Place } from "@/utils/mapboxPlaces";
 import { toast } from "@/components/ui/use-toast";
+import { useLocation } from "@/components/LocationProvider";
 
 interface SuggestedPlacesProps {
   weather: "sunny" | "cloudy" | "rainy" | "windy";
@@ -17,71 +18,50 @@ const SuggestedPlaces: React.FC<SuggestedPlacesProps> = ({ weather }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("parks");
   const [loading, setLoading] = useState(false);
-  const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
   const [placesData, setPlacesData] = useState<Record<string, Place[]>>({});
   const measurementSystem = localStorage.getItem("unplugged_measurement_system") || "metric";
+  const { userLocation, isLoading: locationLoading } = useLocation();
   
-  // Get user location and fetch places
+  // Fetch places when userLocation is available
   useEffect(() => {
-    // Get user location
-    if (navigator.geolocation) {
-      setLoading(true);
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const coords = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          };
-          setUserLocation(coords);
-          
-          try {
-            // Fetch places for each category
-            const categories = ['parks', 'trails', 'cafes', 'beaches', 'viewpoints'];
-            const results: Record<string, Place[]> = {};
-            
-            for (const category of categories) {
-              const places = await fetchPlaces(category, coords);
-              results[category] = places;
-            }
-            
-            setPlacesData(results);
-          } catch (error) {
-            console.error('Error fetching places:', error);
-            toast({
-              title: "Couldn't load places",
-              description: "We had trouble finding places near you. Using sample data instead.",
-              variant: "destructive"
-            });
-            // Use fallback data
-            setPlacesData(getFallbackPlaces());
-          } finally {
-            setLoading(false);
-          }
-        },
-        (error) => {
-          console.error("Error getting location:", error);
-          setLoading(false);
-          toast({
-            title: "Location access denied",
-            description: "We couldn't access your location. Using sample data instead.",
-            variant: "destructive"
-          });
-          // Use fallback data
-          setPlacesData(getFallbackPlaces());
-        }
-      );
-    } else {
-      // Geolocation not supported
-      setLoading(false);
-      toast({
-        title: "Geolocation not supported",
-        description: "Your browser doesn't support geolocation. Using sample data instead.",
-        variant: "destructive"
-      });
-      // Use fallback data
-      setPlacesData(getFallbackPlaces());
+    if (!userLocation) {
+      return; // Wait for location to be available
     }
-  }, []);
+    
+    setLoading(true);
+    
+    const fetchAllPlaces = async () => {
+      try {
+        // Fetch places for each category
+        const categories = ['parks', 'trails', 'cafes', 'beaches', 'viewpoints'];
+        const results: Record<string, Place[]> = {};
+        
+        for (const category of categories) {
+          console.log(`Fetching ${category} near [${userLocation.latitude}, ${userLocation.longitude}]`);
+          // Get places without distance filtering
+          // Limit to 5 places per category to stay within Mapbox API limits
+          const places = await fetchPlaces(category, userLocation, 5);
+          console.log(`Found ${places.length} ${category}:`, places);
+          results[category] = places;
+        }
+        
+        setPlacesData(results);
+      } catch (error) {
+        console.error('Error fetching places:', error);
+        toast({
+          title: "Couldn't load places",
+          description: "We had trouble finding places near you. Using sample data instead.",
+          variant: "destructive"
+        });
+        // Use fallback data
+        setPlacesData(getFallbackPlaces());
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchAllPlaces();
+  }, [userLocation]);
   
   const handleViewAll = () => {
     navigate(`/places-list?type=${activeTab}&weather=${weather}`);
@@ -292,7 +272,7 @@ const SuggestedPlaces: React.FC<SuggestedPlacesProps> = ({ weather }) => {
           </TabsList>
         </div>
         
-        {loading ? (
+        {loading || locationLoading ? (
           <div className="flex items-center justify-center p-8">
             <Loader2 className="h-8 w-8 text-blue-500 animate-spin mr-2" />
             <p className="text-gray-600">Finding places near you...</p>
